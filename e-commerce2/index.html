@@ -18,16 +18,16 @@
   <div class="container">
     <img src="img/logo1.png" alt="logo">
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-      <span><i id ="bar" class="fas fa-bars"></i></span> 
+      <span><i id="bar" class="fas fa-bars"></i></span> 
     </button>
+
     <div class="collapse navbar-collapse" id="navbarSupportedContent">
       <ul class="navbar-nav ms-auto">
-        
         <li class="nav-item">
-          <a class="nav-link" href="/index.html">Home</a>
+          <a class="nav-link" href="index.html">Home</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" href="/shop.html">Shop</a>
+          <a class="nav-link" href="shop.html">Shop</a>
         </li>
         <li class="nav-item">
           <a class="nav-link" href="#">Blog</a>
@@ -40,15 +40,24 @@
         </li>
         <li class="nav-item">
           <i class="fal fa-search"></i>
-          <a href="/cart.html"><i class="fal fa-shopping-bag"></i></a>
-
-
+          <a href="cart.html"><i class="fal fa-shopping-bag"></i></a>
         </li>
 
-        
+        <!-- ✅ Login / Signup Button -->
+        <li class="nav-item ms-3">
+          <button id="open-auth" class="btn btn-outline-primary">Login / Signup</button>
+        </li>
+
+        <!-- ✅ User area (hidden until logged in) -->
+        <li id="user-area" class="nav-item ms-3 d-none">
+          <span id="user-name" class="fw-bold me-2"></span>
+          <button id="sign-out" class="btn btn-outline-danger btn-sm">Sign out</button>
+        </li>
+      </ul>
     </div>
   </div>
 </nav>
+
  <section id="home">
 <div class="container">
     <h5>NEW ARRIVALS</h5>
@@ -414,11 +423,160 @@
   </div>
 </footer>
 
-
-
-
 <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.10.2/dist/umd/popper.min.js" integrity="sha384-7+zCNj/IqJ95wo16oMtfsKbZ9ccEh31eOz1HGyDuCQ6wgnyJNSYdrPa03rtR1zdB" crossorigin="anonymous"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.min.js" integrity="sha384-QJHtvGhmr9XOIpI6YVutG+2QOK9T+ZnN4kzFN1RtK3zEFEIsxhlmWl5/YESvpZ13" crossorigin="anonymous"></script>  
 <script src="/index.js"></script>  
+<!-- Authentication Modal -->
+<div id="auth-modal" class="auth-modal">
+  <div class="auth-content">
+    <span id="close-modal" class="close-btn">&times;</span>
+    <h2>Login</h2>
+    <form id="login-form">
+      <input type="email" name="email" placeholder="Email" required>
+      <input type="password" name="password" placeholder="Password" required>
+      <button type="submit">Login</button>
+    </form>
+
+    <hr>
+
+    <h2>Sign Up</h2>
+    <form id="signup-form">
+      <input type="email" name="email" placeholder="Email" required>
+      <input type="password" name="password" placeholder="Password" required>
+      <button type="submit">Sign Up</button>
+    </form>
+  </div>
+</div>
+
+<!-- Firebase Authentication Script -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-app.js";
+  import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, onAuthStateChanged } 
+  from "https://www.gstatic.com/firebasejs/11.0.1/firebase-auth.js";
+  import { getFirestore, doc, setDoc, getDoc } 
+  from "https://www.gstatic.com/firebasejs/11.0.1/firebase-firestore.js";
+  import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js";
+
+  // ✅ Paste your Firebase config here
+  // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyBVJS5qDlAVSloWPJbGPL8i0z8BhSpwPrQ",
+  authDomain: "summerwebproject-aaf8b.firebaseapp.com",
+  projectId: "summerwebproject-aaf8b",
+  storageBucket: "summerwebproject-aaf8b.firebasestorage.app",
+  messagingSenderId: "582329409295",
+  appId: "1:582329409295:web:855cef2b2e442528cde87a",
+  measurementId: "G-VEHPD4HP27"
+};
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getDatabase(app);
+
+  function saveCartToFirebase(cart) {
+  const user = JSON.parse(localStorage.getItem('user'));
+  if (!user) return; // Only save if logged in
+  set(ref(db, 'carts/' + user.uid), cart)
+    .then(() => console.log('✅ Cart saved to Firebase'))
+    .catch((err) => console.error('❌ Error saving cart:', err));
+}
+
+  // ✅ Get HTML elements
+  const openAuth = document.getElementById("open-auth");
+  const authModal = document.getElementById("auth-modal");
+  const closeModal = document.getElementById("close-modal");
+  const signUpForm = document.getElementById("signup-form");
+  const loginForm = document.getElementById("login-form");
+  const userArea = document.getElementById("user-area");
+  const userName = document.getElementById("user-name");
+  const signOutBtn = document.getElementById("sign-out");
+
+  // ✅ Modal open/close
+  openAuth.addEventListener("click", () => authModal.style.display = "flex");
+  closeModal.addEventListener("click", () => authModal.style.display = "none");
+
+  // ✅ Sign up
+  signUpForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = e.target.email.value;
+  const password = e.target.password.value;
+
+  try {
+    // Create new user with Firebase Auth
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    // Save user info locally (for later use)
+    localStorage.setItem('user', JSON.stringify(user));
+
+    // Create an empty cart for the user in Firebase
+    const db = getDatabase(app);
+    await set(ref(db, 'carts/' + user.uid), []);
+
+    // Close the auth modal if visible
+    if (typeof authModal !== 'undefined') {
+      authModal.style.display = "none";
+    }
+
+    alert("🎉 Account created successfully! You can now add items to your cart.");
+    console.log("New user created and empty cart initialized in Firebase.");
+
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+  // ✅ Login
+  loginForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = e.target.email.value;
+  const password = e.target.password.value;
+
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    const user = userCredential.user;
+
+    // Hide modal
+    authModal.style.display = "none";
+
+    // Save user info locally
+    localStorage.setItem('user', JSON.stringify(user));
+
+    // Load user’s saved cart
+    const db = getDatabase(app);
+    const dbRef = ref(db);
+
+    const snapshot = await get(child(dbRef, `carts/${user.uid}`));
+    if (snapshot.exists()) {
+      const userCart = snapshot.val();
+      localStorage.setItem('cart', JSON.stringify(userCart));
+      console.log('✅ Cart loaded from Firebase');
+    } else {
+      console.log('🟡 No saved cart found for this user');
+    }
+
+    alert("Login successful!");
+  } catch (err) {
+    alert(err.message);
+  }
+});
+
+  // ✅ Sign out
+  signOutBtn.addEventListener("click", () => signOut(auth));
+
+  // ✅ Auth state changes
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      openAuth.style.display = "none";
+      userArea.classList.remove("d-none");
+      userName.textContent = user.email.split("@")[0];
+    } else {
+      openAuth.style.display = "block";
+      userArea.classList.add("d-none");
+    }
+  });
+</script>
+<script src="https://www.gstatic.com/firebasejs/11.0.1/firebase-database.js"></script>
+
 </body>
 </html>

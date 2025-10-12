@@ -32,7 +32,20 @@ function removeItem(index) {
   let cart = JSON.parse(localStorage.getItem('cart')) || [];
   cart.splice(index, 1); // Remove the item
   localStorage.setItem('cart', JSON.stringify(cart));
+  saveCartToFirebase(cart);
   renderCart(); // Re-render
 }
+
+function saveCartToFirebase(cart) {
+  const user = JSON.parse(localStorage.getItem('user'));
+  if (!user) return; // only save if logged in
+  const userId = user.uid;
+
+  const db = firebase.database();
+  db.ref('carts/' + userId).set(cart)
+    .then(() => console.log('Cart saved to Firebase'))
+    .catch(err => console.error('Error saving cart:', err));
+}
+
 
 renderCart();
