@@ -60,20 +60,11 @@ buyButtons.forEach(button => {
 
     // Save updated cart
     localStorage.setItem('cart', JSON.stringify(cart));
-    saveCartToFirebase(cart);
+    
 
     console.log(`Added to cart: ${productName}`);
     alert(`${productName} added to cart!`);
   });
 });
 
-function saveCartToFirebase(cart) {
-  const user = JSON.parse(localStorage.getItem('user'));
-  if (!user) return; // only save if logged in
-  const userId = user.uid;
 
-  const db = firebase.database();
-  db.ref('carts/' + userId).set(cart)
-    .then(() => console.log('Cart saved to Firebase'))
-    .catch(err => console.error('Error saving cart:', err));
-}
